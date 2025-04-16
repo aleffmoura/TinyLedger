@@ -1,0 +1,29 @@
+POST https://localhost:7060/Accounts/
+Content-Type: application/json
+
+{
+  "user": "joao"
+}
+
+### Obter saldo da conta
+GET https://localhost:7060/Accounts/1
+
+### Fazer depósito
+POST https://localhost:7060/Accounts/1/transactions
+Content-Type: application/json
+{
+  "amount": 100.50,
+  "description": "Depósito inicial"
+}
+
+### Fazer saque
+PATCH https://localhost:7060/Accounts/1/transactions
+Content-Type: application/json
+
+{
+  "amount": 1150.25,
+  "description": "Compra no mercado"
+}
+
+### Listar transações da conta
+GET https://localhost:7060/Accounts/1/transactions
