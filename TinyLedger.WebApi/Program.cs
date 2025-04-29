@@ -49,7 +49,6 @@ static async Task<IResult> GetResult(Func<Task<IResult>> action)
 }
 
 var accounts = app.MapGroup("Accounts").WithOpenApi();
-
 accounts.MapPost("/", async (
     [FromServices] IAccountService service,
     [FromBody] AccountCommand cmd,
@@ -58,6 +57,16 @@ accounts.MapPost("/", async (
         {
             var result = await service.CreateAsync(cmd, cancellationToken);
             return Results.Created($"/accounts/{result}", result);
+        }));
+
+accounts.MapPost("/transfer", async (
+    [FromServices] IAccountService service,
+    [FromBody] AccountTransferCommand cmd,
+    CancellationToken cancellationToken)
+        => await GetResult(async () =>
+        {
+            await service.Transfer(cmd, cancellationToken);
+            return Results.Ok();
         }));
 
 accounts.MapGet("/{accountId}", async (

@@ -7,4 +7,5 @@ public interface IAccountService
 {
     Task<int> CreateAsync(AccountCommand cmd, CancellationToken cancellationToken);
     Task<Account?> GetByIdAsync(int accountId, CancellationToken cancellationToken);
+    Task Transfer(AccountTransferCommand cmd, CancellationToken cancellationToken);
 }

@@ -5,6 +5,7 @@ using TinyLedger.WebApi.Layers.Domain;
 using TinyLedger.WebApi.Layers.Domain.Exceptions;
 using TinyLedger.WebApi.Layers.Services.Accounts;
 using TinyLedger.WebApi.Layers.Services.Commands;
+using TinyLedger.WebApi.Layers.Services.Interfaces;
 
 public class AccountServiceTests
 {
@@ -12,12 +13,76 @@ public class AccountServiceTests
     private readonly Mock<IWriteRepository<Account>> _accountWriteRepository;
 
     private readonly AccountService _service;
+    private readonly Mock<ITransactService> _transactionService;
 
     public AccountServiceTests()
     {
         _accountReadRepository = new();
         _accountWriteRepository = new();
-        _service = new(_accountWriteRepository.Object, _accountReadRepository.Object);
+        _transactionService = new();
+        _service = new(_accountWriteRepository.Object, _accountReadRepository.Object, _transactionService.Object);
+    }
+
+    [Test]
+    public async Task AccountServiceTests_Transfer_To_Account_ShouldBeSuccess()
+    {
+        // arrange
+        const int fromId = 1;
+        const int toId = 2;
+        const decimal currentValueFrom = 1000;
+        const decimal currentValueTo = 1000;
+
+        Account accountFrom = new()
+        {
+            Id = fromId,
+            Balance = currentValueFrom,
+        };
+        Account accountTo = new()
+        {
+            Id = toId,
+            Balance = currentValueTo,
+        };
+
+        const decimal transferValue = 100;
+        _accountReadRepository.Setup(x => x.GetById(fromId, CancellationToken.None))
+            .ReturnsAsync(accountFrom);
+
+        _accountReadRepository.Setup(x => x.GetById(toId, CancellationToken.None))
+            .ReturnsAsync(accountTo);
+
+        _transactionService.Setup(x => x.WithdrawAsync(It.IsAny<TransactCommand>(), CancellationToken.None))
+            .Returns(async (TransactCommand cmd, CancellationToken token) =>
+            {
+                accountFrom.Balance -= cmd.Amount;
+                return await Task.FromResult(1);
+            });
+        _transactionService.Setup(x => x.DepositAsync(It.IsAny<TransactCommand>(), It.IsAny<CancellationToken>()))
+            .Returns((TransactCommand cmd, CancellationToken token) =>
+            {
+                accountTo.Balance += cmd.Amount;
+                return Task.FromResult(1);
+            });
+
+        // action
+        var act = async () => await _service.Transfer(new AccountTransferCommand
+        {
+            AccountToId = fromId,
+            AccountFromId = toId,
+            Value = transferValue
+        }, CancellationToken.None);
+
+        // verifies
+        await act.Should().NotThrowAsync();
+        accountFrom.Balance.Should().Be(currentValueFrom - transferValue);
+        accountTo.Balance.Should().Be(currentValueTo + transferValue);
+
+        _accountReadRepository.Verify(x => x.GetById(fromId, CancellationToken.None));
+        _accountReadRepository.Verify(x => x.GetById(toId, CancellationToken.None));
+        _accountReadRepository.VerifyNoOtherCalls();
+        _accountReadRepository.VerifyNoOtherCalls();
+        _transactionService.Verify(x => x.WithdrawAsync(It.IsAny<TransactCommand>(), CancellationToken.None), Times.Once);
+        _transactionService.Verify(x => x.DepositAsync(It.IsAny<TransactCommand>(), CancellationToken.None), Times.Once);
+        _transactionService.VerifyNoOtherCalls();
     }
 
     [Test]
